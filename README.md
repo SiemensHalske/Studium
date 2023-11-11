@@ -22,3 +22,15 @@ Example:
 ```bash
 javac RecursiveGCD.java
 java RecursiveGCD
+
+```
+
+## License
+
+This repository is licensed under the MIT license. See `LICENSE` for details.
+
+## Acknowledgements
+
+- Me for writing all of the code.
+- The Deutsche Bahn for reliably being delayed.
+- The person who invented coffee.

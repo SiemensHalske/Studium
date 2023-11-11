@@ -9,10 +9,8 @@ public class Aufgabe_2_DecimalFormatting {
         scanner.close();
 
         System.out.println(number);
-
-        System.out.printf("%10.3f%n", number);
-
         
+        System.out.printf("%10.3f%n", number);
         System.out.printf("%11.0f %11.2f %11.4e%n", number, number, number);
 
         // Output the number right-aligned at the 20th position with leading zeros
