@@ -48,27 +48,76 @@
 This document provides a comprehensive overview of the Python script designed for training a chatbot model with a focus on the Longformer transformer model, suitable for processing lengthy text sequences.
 
 \section{Mathematical Background}
-\subsection{Loss Function}
-The loss function used in training is typically a cross-entropy loss for binary classification tasks. It is defined as:
+\subsection{Optimizer - AdamW Details}
+The AdamW optimizer enhances the Adam optimizer by incorporating weight decay, which is a regularization technique. Regularization is crucial in machine learning to prevent the model from overfitting to the training data, which could lead to poor generalization on unseen data. AdamW specifically addresses the shortcomings of Adam's L2 regularization by decoupling the weight decay from the gradient updates.
+
+The mathematical update rules for AdamW can be expanded upon as follows:
 
 \begin{equation}
-    L(y, \hat{y}) = - \frac{1}{N} \sum_{i=1}^{N} y_i \cdot \log(\hat{y}_i) + (1 - y_i) \cdot \log(1 - \hat{y}_i)
+    m_t = \beta_1 \cdot m_{t-1} + (1 - \beta_1) \cdot g_t
 \end{equation}
 
-where \( y \) is the true label, \( \hat{y} \) is the predicted label, and \( N \) is the number of observations.
+where \( m_t \) is the first moment vector (the mean of the gradients), \( \beta_1 \) is the exponential decay rate for the first moment estimates, and \( g_t \) is the gradient at time step \( t \). This equation represents a moving average of the gradients and serves to stabilize the direction of the descent by combining the momentum of past gradients with the current gradient.
 
-\subsection{Optimizer}
-The AdamW optimizer is an extension of the Adam optimizer that includes weight decay for regularization, aiding in preventing overfitting. The update rule for the optimizer's parameters can be described as follows:
+\begin{equation}
+    v_t = \beta_2 \cdot v_{t-1} + (1 - \beta_2) \cdot g_t^2
+\end{equation}
 
-\begin{align}
-    m_t &= \beta_1 \cdot m_{t-1} + (1 - \beta_1) \cdot g_t \\
-    v_t &= \beta_2 \cdot v_{t-1} + (1 - \beta_2) \cdot g_t^2 \\
-    \hat{m}_t &= \frac{m_t}{1 - \beta_1^t} \\
-    \hat{v}_t &= \frac{v_t}{1 - \beta_2^t} \\
-    \theta_{t+1} &= \theta_t - \frac{\eta \cdot \hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon}
-\end{align}
+In this equation, \( v_t \) is the second moment vector (the uncentered variance of the gradients), and \( \beta_2 \) is the exponential decay rate for the second moment estimates. This vector adapts the learning rate to the parameters, scaling down the steps for parameters with large gradients and scaling up the steps for parameters with small gradients.
 
-Here, \( m_t \) and \( v_t \) are estimates of the first and second moments of the gradients, \( g_t \) is the gradient at time step \( t \), \( \beta_1 \) and \( \beta_2 \) are decay rates, \( \hat{m}_t \) and \( \hat{v}_t \) are bias-corrected estimates, \( \eta \) is the learning rate, and \( \epsilon \) is a small scalar used to prevent division by zero.
+The first and second moment vectors are then bias-corrected to compensate for their initialization at the origin:
+
+\begin{equation}
+    \hat{m}_t = \frac{m_t}{1 - \beta_1^t}
+\end{equation}
+
+\begin{equation}
+    \hat{v}_t = \frac{v_t}{1 - \beta_2^t}
+\end{equation}
+
+These bias-corrected moments estimate the mean and the uncentered variance of the gradients more accurately.
+
+Finally, the parameters are updated as follows:
+
+\begin{equation}
+    \theta_{t+1} = \theta_t - \frac{\eta}{\sqrt{\hat{v}_t} + \epsilon} \hat{m}_t
+\end{equation}
+
+This final update rule adjusts each parameter \( \theta \) in the direction that minimizes the loss function. The learning rate \( \eta \) scales the magnitude of the update, \( \hat{m}_t \) provides the direction of the steepest descent based on the first moment, and \( \sqrt{\hat{v}_t} \) adapts the learning rate based on the second moment estimate. The term \( \epsilon \) is a small constant that ensures numerical stability, preventing division by zero.
+
+The incorporation of weight decay in AdamW modifies the parameter update rule to also include a term for the weight decay penalty, which effectively shrinks the weights towards zero:
+
+\begin{equation}
+    \theta_{t+1} = \theta_t (1 - \eta \lambda) - \frac{\eta}{\sqrt{\hat{v}_t} + \epsilon} \hat{m}_t
+\end{equation}
+
+Here, \( \lambda \) represents the weight decay coefficient. This additional term helps in reducing the magnitude of weights and thus counteracts the overfitting by penalizing large weights.
+
+The combination of momentum from the moving average and the adaptive learning rate from the second moment estimate allows AdamW to converge rapidly and effectively, compared to classical optimization methods. It is particularly effective for problems with large datasets and/or high-dimensional parameter spaces.
+
+\vspace{2em}
+\subsection{Loss Function - Cross-Entropy Detail}
+Cross-entropy is a measure from the field of information theory, building off the concept of entropy, which characterizes the expected amount of information produced by a stochastic source of data. For the purposes of machine learning and particularly in classification tasks, cross-entropy is a way to quantify the difference between two probability distributions - the true distribution represented by the labels and the estimated distribution as predicted by the model.
+
+For a binary classification model, the output is the probability of the input being in the positive class (class 1). The cross-entropy loss for an individual sample is calculated using the following formula:
+
+\begin{equation}
+    L(y, \hat{y}) = - [y \log(\hat{y}) + (1 - y) \log(1 - \hat{y})]
+\end{equation}
+
+where \( y \) is the true label (0 or 1), and \( \hat{y} \) is the predicted probability that the sample belongs to the positive class. The logarithmic component of the equation penalizes predictions that diverge from the actual label.
+
+When the model's prediction \( \hat{y} \) is close to the true label \( y \), the log term approaches 0, and the loss for that sample is small. However, when the prediction is far from the actual label, the log term grows, and the loss increases significantly, reflecting the higher cost of a poor prediction.
+
+To calculate the total cross-entropy loss across all \( N \) samples in the dataset, we take the average loss over all samples:
+
+\begin{equation}
+    L(Y, \hat{Y}) = - \frac{1}{N} \sum_{i=1}^{N} [y_i \log(\hat{y}_i) + (1 - y_i) \log(1 - \hat{y}_i)]
+\end{equation}
+
+This loss function is differentiable, which allows us to use gradient-based optimization methods to update the weights of the model. The gradient of the cross-entropy loss with respect to the weights can be computed using the chain rule, which is the cornerstone of the backpropagation algorithm in neural networks.
+
+Minimizing the cross-entropy loss function during training pushes the model's predictions closer to the actual labels, improving the model's classification accuracy. It is important to note that while it is possible for the cross-entropy loss to be driven to zero, in practice, due to factors like model complexity and data noise, a non-zero loss is more common.
 
 \newpage
 \section{Program Overview}
