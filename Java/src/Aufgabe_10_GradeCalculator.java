@@ -28,6 +28,9 @@ public class Aufgabe_10_GradeCalculator {
             grade = "sehr gut";
         }
 
+        // a case-statement could also be used here, but naaaah.....
+        // why not train a neural network for that task? :D
+
         System.out.println("Score: " + score + " - Grade: " + grade);
     }
 }

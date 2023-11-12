@@ -26,6 +26,7 @@ public class Aufgabe_7_MultiplicationTable {
 
         // Print each row of the extended table
         for (int i = 1; i <= 10; i++) {
+            
             // Print the row header
             System.out.printf("%2d |", i);
 

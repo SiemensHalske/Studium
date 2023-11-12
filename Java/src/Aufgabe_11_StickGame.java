@@ -5,6 +5,7 @@ public class Aufgabe_11_StickGame {
     public static void main(String[] args) {
         Random random = new Random();
         Scanner scanner = new Scanner(System.in);
+
         int sticks = random.nextInt(11) + 21; // Random number of sticks between 21 and 31
         int sticksTaken;
 

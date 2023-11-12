@@ -8,12 +8,14 @@ public class Aufgabe_5_DiceRoller {
         do {
             sum = 0;
             product = 1;
-            // Roll six dice
+            
+            // Roll six dice times
             for (int i = 0; i < 6; i++) {
-                dice[i] = (int)(Math.random() * 6) + 1;
+                dice[i] = (int)(Math.random() * 6) + 1;  // Generate a random number between 0 and 6
                 sum += dice[i];
                 product *= dice[i];
             }
+
             rollCount++;
         } while (sum != 22 || product != 540);
 
