@@ -41,4 +41,3 @@ This repository is licensed under the MIT license. See `LICENSE` for details.
 - Me for writing all of the code.
 - The Deutsche Bahn for reliably being delayed.
 - The person who invented coffee.
-- 
