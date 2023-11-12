@@ -35,13 +35,9 @@ Source code for the machine learning algorithms and utilities.
 - `alchemist_train.py`: The main script used to train the machine learning models.
 - `alchemist_transformerBlock.py`: Contains the implementation of a transformer block, potentially related to models like BERT or GPT.
 - `convert_dataset.py`: A utility script to convert datasets between different formats.
-- `DataAlchemist.py`: Likely a central script with functions and classes to manage and orchestrate the data transformation and model training process.
+- `DataAlchemist.py`: This is a primary script that utilizes various functions and classes to oversee and coordinate the processes of data transformation and model inference.
 - `example_answer_1.txt`, `example_prompt_1.txt`: Example files that might be used as templates or test cases for the ML models.
 - `GraphTransformer.cs`: A C# script that could indicate an implementation of the Graph Transformer architecture for machine learning tasks involving graph data structures.
-- `IBAN_calc.py`: A Python script that may contain logic for calculating or validating International Bank Account Numbers (IBAN).
-- `info.java`: A Java file likely to provide system information or metadata related to the ML tasks.
-- `test.java`, `test.py`: Test scripts in Java and Python respectively, possibly used for unit testing of the algorithms and methods implemented.
-- `.gitignore`: A file specifying untracked files that Git should ignore.
 
 ## Installation and Usage
 

@@ -1,0 +1,196 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{datetime}
+
+% Define colors for code listing
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+% Adjust the date to one day back
+\newdate{yesterday}{\day-1}{\month}{\year}
+
+\lstset{style=mystyle}
+
+\begin{document}
+
+\title{Detailed Chatbot Training}
+\author{Hendrik Siemens}
+\date{11th November, 2023}
+
+\maketitle
+\tableofcontents
+
+\newpage
+\section{Introduction}
+This document provides a comprehensive overview of the Python script designed for training a chatbot model with a focus on the Longformer transformer model, suitable for processing lengthy text sequences.
+
+\section{Mathematical Background}
+\subsection{Loss Function}
+The loss function used in training is typically a cross-entropy loss for binary classification tasks. It is defined as:
+
+\begin{equation}
+    L(y, \hat{y}) = - \frac{1}{N} \sum_{i=1}^{N} y_i \cdot \log(\hat{y}_i) + (1 - y_i) \cdot \log(1 - \hat{y}_i)
+\end{equation}
+
+where \( y \) is the true label, \( \hat{y} \) is the predicted label, and \( N \) is the number of observations.
+
+\subsection{Optimizer}
+The AdamW optimizer is an extension of the Adam optimizer that includes weight decay for regularization, aiding in preventing overfitting. The update rule for the optimizer's parameters can be described as follows:
+
+\begin{align}
+    m_t &= \beta_1 \cdot m_{t-1} + (1 - \beta_1) \cdot g_t \\
+    v_t &= \beta_2 \cdot v_{t-1} + (1 - \beta_2) \cdot g_t^2 \\
+    \hat{m}_t &= \frac{m_t}{1 - \beta_1^t} \\
+    \hat{v}_t &= \frac{v_t}{1 - \beta_2^t} \\
+    \theta_{t+1} &= \theta_t - \frac{\eta \cdot \hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon}
+\end{align}
+
+Here, \( m_t \) and \( v_t \) are estimates of the first and second moments of the gradients, \( g_t \) is the gradient at time step \( t \), \( \beta_1 \) and \( \beta_2 \) are decay rates, \( \hat{m}_t \) and \( \hat{v}_t \) are bias-corrected estimates, \( \eta \) is the learning rate, and \( \epsilon \) is a small scalar used to prevent division by zero.
+
+\newpage
+\section{Program Overview}
+\subsection{Dependencies}
+The script relies on the following main Python libraries:
+\begin{itemize}
+    \item \texttt{transformers}: For accessing pre-trained Longformer models and utilities.
+    \item \texttt{torch}: The PyTorch library for deep learning.
+    \item \texttt{pandas}: For loading and manipulating datasets.
+\end{itemize}
+
+\subsection{Data Preparation}
+Data preparation is a crucial stage in the machine learning pipeline, especially for natural language processing tasks. The training script processes data from Parquet files, which are a columnar storage file format optimized for use with the Apache Parquet framework. This format is particularly efficient for both storage and performant data retrieval.
+
+The script reads these Parquet files to construct a dataset, performing the following steps:
+
+\begin{enumerate}
+    \item \textbf{Data Loading:} The data is loaded into the Python environment using the pandas library, which provides fast, flexible, and expressive data structures designed to make working with structured (tabular, multidimensional, potentially heterogeneous) and time series data both easy and intuitive.
+    \begin{lstlisting}[language=Python]
+df = pd.read_parquet(file_path)
+    \end{lstlisting}
+    
+    \item \textbf{Tokenization:} The Longformer tokenizer converts the raw text into a format that is compatible with the model. This involves splitting the text into tokens that are available in the pre-trained model's vocabulary. Each token is then mapped to an integer ID. The tokenizer also pads or truncates the sequences to a fixed length.
+    \begin{lstlisting}[language=Python]
+self.encodings = tokenizer(texts, truncation=True, 
+                           padding='max\_length', max\_length=max\_length, 
+                           return\_tensors='pt')
+    \end{lstlisting}
+    
+    \item \textbf{Dataset Creation:} A custom PyTorch Dataset is created by subclassing the \texttt{Dataset} class. This dataset will be responsible for holding the tokenized prompts and corresponding responses. In PyTorch, custom datasets are created by inheriting from \texttt{Dataset} and overriding the methods \texttt{\_\_len\_\_} and \texttt{\_\_getitem\_\_}.
+    \begin{lstlisting}[language=Python]
+class TextDataset(Dataset):
+    def \_\_init\_\_(self, texts, labels, tokenizer, max\_length=4096):
+        self.encodings = tokenizer(texts, truncation=True, 
+                                   padding='max\_length', max\_length=max\_length, 
+                                   return\_tensors='pt')
+        self.labels = labels
+
+    def \_\_len\_\_(self):
+        return len(self.labels)
+
+    def \_\_getitem\_\_(self, idx):
+        item = \{key: val[idx] for key, val in self.encodings.items()\}
+        item['labels'] = torch.tensor(self.labels[idx])
+        return item
+    \end{lstlisting}
+    
+    \item \textbf{DataLoader Initialization:} The DataLoader combines the dataset and a sampler, providing an iterable over the given dataset. It supports automatic batching, single- and multi-process data loading, and customizing data loading order. The DataLoader is initialized with the dataset and other parameters such as batch size and shuffling to ensure randomness in the training process.
+    \begin{lstlisting}[language=Python]
+loader = DataLoader(dataset, batch\_size=1, shuffle=True)
+    \end{lstlisting}
+\end{enumerate}
+
+This preparation process ensures that the data is in the correct format for the Longformer model to process, which is crucial for the subsequent training phase. By tokenizing the data and constructing a DataLoader, we facilitate efficient data handling and batch processing during model training.
+
+\newpage
+\subsection{Model Configuration and Training}
+The configuration and training of the Longformer model involve initializing the model architecture with parameters tailored for the specific classification task. The Longformer, a variant of the transformer architecture designed to handle long sequences, is particularly adept for tasks requiring a deep understanding of context across extensive text.
+
+The initialization process includes loading a pre-trained Longformer model, which leverages a vast knowledge base embedded in its pre-learned weights. This step is critical as it provides a solid foundation of language understanding, which is further refined during training. For sequence classification, the model's output layer is customized to match the number of expected labels, corresponding to the distinct classes in the classification task.
+
+Training the model is an iterative process, conducted over multiple epochs. An epoch is defined as one complete pass through the entire training dataset, and multiple epochs are necessary for the model to learn effectively from the data. During each epoch, the following steps are meticulously executed for each batch of data:
+
+\begin{itemize}
+    \item A \textbf{forward pass} to compute the predicted outcomes based on the current state of the model's parameters.
+    \item The calculation of the \textbf{loss}, which measures the discrepancy between the predictions and the actual labels. This loss function is typically a cross-entropy loss in classification tasks, which is well-suited for discrete label predictions.
+    \item A \textbf{backward pass} to calculate the gradients of the loss with respect to each parameter. Backpropagation, a cornerstone algorithm in neural network training, is used for this purpose.
+    \item An \textbf{optimization step} where the model's parameters are updated by an optimizer, such as AdamW. This optimizer not only adjusts each parameter based on its gradient but also considers the momentum of previous updates and a correction term to counteract the model's complexity, which helps in regularization and reduces the risk of overfitting.
+\end{itemize}
+
+Throughout this training process, the model learns to adjust its weights to minimize the loss, which, in turn, enhances its predictive accuracy on the classification task. Model performance is usually validated against a separate dataset not seen during training to ensure the model's generalizability and to prevent overfitting to the training data. After sufficient training, evidenced by a stable or decreasing validation loss and increased accuracy, the model is deemed ready for deployment or further fine-tuning.
+
+\newpage
+\subsection{Detailed Code Explanation}
+The training loop is the core iterative process of machine learning, where the model learns to map inputs to the correct outputs. Here we detail the underlying mathematical and algorithmic procedures of this loop:
+
+\begin{enumerate}
+    \item \textbf{Zero Gradients:}
+    Before each forward pass, accumulated gradients from the previous pass must be cleared to prevent double counting, which could lead to incorrect parameter updates. This step is analogous to setting the initial state for an optimization problem where gradients signify the direction and magnitude of the steepest ascent in parameter space.
+
+    \begin{lstlisting}[language=Python]
+optimizer.zero_grad()
+    \end{lstlisting}
+
+    \item \textbf{Forward Pass:}
+    In the forward pass, input data is fed through the model, resulting in the output predictions. This pass involves a series of matrix multiplications, non-linear activations, and other operations defined by the model architecture. The loss function, usually a negative log-likelihood for classification tasks, quantifies how well the model's predictions match the true labels. Mathematically, for a classification task with \( C \) classes, the loss for a single instance with true label \( y \) and predicted probabilities \( p \) over classes can be defined as \( L = -\sum_{c=1}^{C} y_{c} \log(p_{c}) \), where \( y \) is a one-hot encoded vector of true class labels.
+
+    \begin{lstlisting}[language=Python]
+outputs = model(**{k: v.to(model.device) for k, v in batch.items()})
+loss = outputs.loss
+    \end{lstlisting}
+
+    \item \textbf{Backward Pass:}
+    During the backward pass, the gradients of the loss function with respect to the model parameters are computed. This is done using the backpropagation algorithm, which efficiently calculates gradients using the chain rule of calculus. For a model parameter \( \theta \), the gradient \( \nabla_{\theta}L \) indicates the direction in which \( \theta \) should be adjusted to minimize the loss.
+
+    \begin{lstlisting}[language=Python]
+loss.backward()
+    \end{lstlisting}
+    \newpage
+    \item \textbf{Optimization Step:}
+    The optimizer then updates the parameters in the opposite direction of the gradients to minimize the loss. The AdamW optimizer, a variant of the Adam optimizer, is often used; it computes adaptive learning rates for each parameter. The update rule incorporates both the gradient and the square of the gradient, denoted as \( m_t \) and \( v_t \) respectively, to adjust the learning rate for each parameter dynamically. The learning rate \( \alpha \), a hyperparameter, scales the gradient to determine the size of the update step. The update at time step \( t \) for each parameter \( \theta \) is given by \( \theta_{t+1} = \theta_t - \alpha \cdot m_t / (\sqrt{v_t} + \epsilon) \), where \( \epsilon \) is a small number to prevent division by zero.
+
+    \begin{lstlisting}[language=Python]
+optimizer.step()
+    \end{lstlisting}
+\end{enumerate}
+
+\vspace{0.5em}
+This procedural and mathematical framework, iterated over many epochs, allows the model to refine its parameters and improve its predictive accuracy. By adjusting parameters in a direction that minimizes the loss, the model's outputs become increasingly aligned with the true data labels, thus learning the underlying mapping from inputs to outputs.
+
+
+\subsection{Saving the Model}
+The trained model's parameters are saved to disk, a process known as serialization. This allows the model to be later restored (deserialization) without the need to retrain. The state of the model, including its architecture and learned weights, are preserved, enabling inference or further training at a later time.
+\begin{lstlisting}[language=Python]
+model.save_pretrained('path/to/save/model')
+\end{lstlisting}
+
+\section{Conclusion}
+The provided script exemplifies a solid foundation for training a chatbot model using advanced deep learning techniques. The Longformer model, adapted for sequence classification, is well-suited for the nuanced task of language understanding in chatbot applications, particularly those that deal with extended dialogues or documents.
+
+This documentation has elucidated the mathematical computations behind the model's training process, including the optimization algorithm and the loss function's role in guiding parameter updates. Furthermore, it has detailed the procedural steps within the training loop, offering insight into the iterative process that underpins machine learning.
+
+By demystifying the complexities of the training script, this document aims to serve as a resource for understanding and further developing intelligent chatbot systems that can provide comprehensive support in various domains, including university life and beyond.
+
+\end{document}
