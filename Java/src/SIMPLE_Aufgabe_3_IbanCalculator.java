@@ -4,6 +4,9 @@ public class SIMPLE_Aufgabe_3_IbanCalculator {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
+        System.out.println("Geben Sie den Ländercode ein:");
+        String countryCode = scanner.nextLine().toUpperCase();
+
         System.out.println("Geben Sie die Bankleitzahl ein:");
         String bankCode = scanner.nextLine();
         
@@ -64,7 +67,7 @@ public class SIMPLE_Aufgabe_3_IbanCalculator {
         String checksumString = String.format("%02d", checksum);
         
         // Zusammenbau der IBAN
-        String iban = "DE" + checksumString + bankCode + accountNumber;
+        String iban = countryCode + checksumString + bankCode + accountNumber;
         System.out.println("Die berechnete IBAN ist: " + iban);
 
         scanner.close();
