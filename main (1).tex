@@ -1,0 +1,195 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[margin=3cm]{geometry}
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\usepackage{polyglossia}
+\setdefaultlanguage{german}
+
+\usepackage{xcolor}
+
+\usepackage{setspace}
+\onehalfspacing
+
+\usepackage{listings} % Für SQL-Code-Listings
+\lstset{
+  basicstyle=\ttfamily,
+  language=SQL,
+  showstringspaces=false,
+  columns=flexible,
+  numbers=left,
+  stepnumber=1,
+  frame=single,
+  breaklines=true,
+  postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space}
+}
+
+\usepackage{graphicx} % Für Grafiken
+\usepackage[hidelinks]{hyperref}
+
+\title{Dokumentation der Datenmodellierung und SQL-Anweisungen}
+\author{Hendrik Siemens}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Einleitung}
+Die Dokumentation beschreibt die Entwicklung eines ER-Modells und die Implementierung eines Datenmodells für die Verwaltung von Schulbuchausleihen. Ziel ist es, die bestehenden manuellen Prozesse zu digitalisieren und zu automatisieren, um Effizienz und Genauigkeit zu verbessern.
+
+\section{ER-Modell}
+Basierend auf der vorliegenden Listenform wurde ein ER-Modell entworfen, welches die Datenstruktur für die Schulbuchverwaltung abbildet.
+
+\subsection{Entitäten und Attribute}
+\begin{itemize}
+  \item \textbf{Schüler}: SchülerID, Name, Vorname, Straße, PLZ, Ort
+  \item \textbf{Klasse}: KlassenID, Klassenname, LehrerID
+  \item \textbf{Lehrer}: LehrerID, Name
+  \item \textbf{Buch}: BuchID, ISBN, Titel
+  \item \textbf{Buchausleihe}: SchülerID, BuchID, Ausleihdatum, Rückgabedatum
+\end{itemize}
+
+\subsection{Beziehungen}
+\begin{itemize}
+  \item Schüler sind Klassen zugeordnet.
+  \item Klassen werden von Lehrern unterrichtet.
+  \item Bücher werden von Schülern ausgeliehen.
+\end{itemize}
+
+\newpage
+\section{SQL-Anweisungen}
+Nachfolgend sind die SQL-Anweisungen für die Umsetzung des ER-Modells und den Datenimport aufgeführt.
+
+\subsection{Tabellenstruktur}
+\begin{lstlisting}
+CREATE TABLE Schueler (
+    SchuelerID INT AUTO_INCREMENT PRIMARY KEY,
+    Name VARCHAR(255),
+    Vorname VARCHAR(255),
+    Strasse VARCHAR(255),
+    PLZ VARCHAR(5),
+    Ort VARCHAR(255)
+);
+
+CREATE TABLE Klasse (
+    KlassenID INT AUTO_INCREMENT PRIMARY KEY,
+    Klassenname VARCHAR(255),
+    LehrerID INT,
+    FOREIGN KEY (LehrerID) REFERENCES Lehrer(LehrerID)
+);
+
+CREATE TABLE Lehrer (
+    LehrerID INT AUTO_INCREMENT PRIMARY KEY,
+    Name VARCHAR(255)
+);
+
+CREATE TABLE Buch (
+    BuchID INT AUTO_INCREMENT PRIMARY KEY,
+    ISBN VARCHAR(13),
+    Titel VARCHAR(255)
+);
+
+CREATE TABLE Buchausleihe (
+    SchuelerID INT,
+    BuchID INT,
+    Ausleihdatum DATE,
+    FOREIGN KEY (SchuelerID) REFERENCES Schueler(SchuelerID),
+    FOREIGN KEY (BuchID) REFERENCES Buch(BuchID)
+);
+
+CREATE TABLE TempImport (
+    Name VARCHAR(255),
+    Vorname VARCHAR(255),
+    Strasse VARCHAR(255),
+    PLZ VARCHAR(5),
+    Ort VARCHAR(255),
+    Klassenname VARCHAR(255),
+    LehrerName VARCHAR(255),
+    ISBN VARCHAR(13),
+    Buchtitel VARCHAR(255)
+);
+\end{lstlisting}
+
+\newpage
+\subsection{Datenimport und Verteilung}
+\begin{lstlisting}
+LOAD DATA INFILE '/home/hendrik/Documents/test.csv'
+INTO TABLE TempImport
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 LINES
+(Name, Vorname, Strasse, PLZ, Ort, Klassenname, LehrerName, ISBN, Buchtitel);
+
+
+INSERT INTO Schueler (Name, Vorname, Strasse, PLZ, Ort)
+SELECT DISTINCT Name, Vorname, Strasse, PLZ, Ort 
+FROM TempImport
+ON DUPLICATE KEY UPDATE SchuelerID = SchuelerID;
+
+INSERT INTO Lehrer (Name)
+SELECT DISTINCT LehrerName
+FROM TempImport
+WHERE LehrerName IS NOT NULL AND LehrerName != '';
+
+INSERT INTO Klasse (Klassenname, LehrerID)
+SELECT DISTINCT 
+    t.Klassenname, 
+    l.LehrerID
+FROM TempImport t
+JOIN Lehrer l ON t.LehrerName = l.Name
+WHERE t.Klassenname IS NOT NULL AND t.Klassenname != '';
+
+INSERT INTO Buch (ISBN, Titel)
+SELECT DISTINCT 
+    ISBN, 
+    Buchtitel
+FROM TempImport
+WHERE ISBN IS NOT NULL AND ISBN != '';
+
+INSERT INTO Buchausleihe (SchuelerID, BuchID, Ausleihdatum, Rueckgabedatum)
+SELECT 
+    s.SchuelerID, 
+    b.BuchID, 
+    ti.Ausleihdatum, 
+    ti.Rueckgabedatum
+FROM TempImport ti
+JOIN Schueler s ON ti.Name = s.Name AND ti.Vorname = s.Vorname
+JOIN Buch b ON ti.ISBN = b.ISBN
+WHERE ti.Ausleihdatum IS NOT NULL;
+
+DROP TABLE IF EXISTS TempImport;
+\end{lstlisting}
+
+\newpage
+\subsection{Datenabfrage}
+\begin{lstlisting}
+SELECT
+  s.SchuelerID,
+  s.Name AS SchuelerName,
+  s.Vorname,
+  s.Strasse,
+  s.PLZ,
+  s.Ort,
+  k.Klassenname,
+  l.Name AS LehrerName,
+  b.ISBN,
+  b.Titel AS Buchtitel
+FROM
+  Schueler s
+  JOIN Buchausleihe ba ON s.SchuelerID = ba.SchuelerID
+  JOIN Buch b ON ba.BuchID = b.BuchID
+  JOIN Klasse k ON s.SchuelerID = k.KlassenID
+  JOIN Lehrer l ON k.LehrerID = l.LehrerID
+ORDER BY
+  s.SchuelerID, b.BuchID;
+\end{lstlisting}
+
+\newpage
+\section{Schlussfolgerung}
+Diese Dokumentation stellt einen ersten Schritt in Richtung einer effizienteren und fehlerfreien Verwaltung von Schulbüchern dar. Weitere Optimierungen und Anpassungen können implementiert werden, um die Benutzerfreundlichkeit und Funktionalität des Systems zu verbessern.
+
+\end{document}
